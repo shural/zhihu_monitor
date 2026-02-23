@@ -1,0 +1,160 @@
+diff --git a/cmd/pinchtab/browser.go b/cmd/pinchtab/browser.go
+index 88c91f1..1c986f4 100644
+--- a/cmd/pinchtab/browser.go
++++ b/cmd/pinchtab/browser.go
+@@ -93,6 +93,10 @@ func buildChromeOpts(cfg *config.RuntimeConfig) []chromedp.ExecAllocatorOption {
+ 		}
+ 	}
+ 
++	if cfg.UserAgent != "" {
++		opts = append(opts, chromedp.Flag("user-agent", cfg.UserAgent))
++	}
++
+ 	if cfg.Headless {
+ 		opts = append(opts, chromedp.Headless)
+ 	} else {
+@@ -102,7 +106,7 @@ func buildChromeOpts(cfg *config.RuntimeConfig) []chromedp.ExecAllocatorOption {
+ 	return opts
+ }
+ 
+-func startChrome(allocCtx context.Context, seededScript string) (context.Context, context.CancelFunc, error) {
++func startChrome(allocCtx context.Context, seededScript string, baseUA string) (context.Context, context.CancelFunc, error) {
+ 	bCtx, bCancel := chromedp.NewContext(allocCtx)
+ 
+ 	startCtx, startDone := context.WithTimeout(context.Background(), chromeStartTimeout)
+@@ -112,6 +116,30 @@ func startChrome(allocCtx context.Context, seededScript string) (context.Context
+ 	go func() {
+ 		errCh <- chromedp.Run(bCtx,
+ 			chromedp.ActionFunc(func(ctx context.Context) error {
++				if baseUA != "" {
++					_ = emulation.SetUserAgentOverride(baseUA).
++						WithAcceptLanguage("en-US,en").
++						WithPlatform("MacIntel").
++						WithUserAgentMetadata(&emulation.UserAgentMetadata{
++							Architecture:    "arm",
++							Bitness:         "64",
++							Mobile:          false,
++							Model:           "",
++							Platform:        "macOS",
++							PlatformVersion: "14.0.0",
++							Brands: []*emulation.UserAgentBrandVersion{
++								{Brand: "Not(A:Brand", Version: "99"},
++								{Brand: "Google Chrome", Version: "133"},
++								{Brand: "Chromium", Version: "133"},
++							},
++							FullVersionList: []*emulation.UserAgentBrandVersion{
++								{Brand: "Not(A:Brand", Version: "99.0.0.0"},
++								{Brand: "Google Chrome", Version: "133.0.6943.141"},
++								{Brand: "Chromium", Version: "133.0.6943.141"},
++							},
++						}).
++						Do(ctx)
++				}
+ 				_, err := page.AddScriptToEvaluateOnNewDocument(seededScript).Do(ctx)
+ 				return err
+ 			}),
+diff --git a/cmd/pinchtab/cmd_dashboard.go b/cmd/pinchtab/cmd_dashboard.go
+index b398ce9..65b9002 100644
+--- a/cmd/pinchtab/cmd_dashboard.go
++++ b/cmd/pinchtab/cmd_dashboard.go
+@@ -32,7 +32,7 @@ func runDashboard(cfg *config.RuntimeConfig) {
+ 
+ 	slog.Info("🦀 Pinchtab Dashboard", "port", dashPort)
+ 
+-	profilesDir := filepath.Join(cfg.StateDir, "profiles")
++	profilesDir := filepath.Join(filepath.Dir(cfg.ProfileDir), "profiles")
+ 	if err := os.MkdirAll(profilesDir, 0755); err != nil {
+ 		slog.Error("cannot create profiles dir", "err", err)
+ 		os.Exit(1)
+diff --git a/cmd/pinchtab/main.go b/cmd/pinchtab/main.go
+index 9d7a150..5e500b7 100644
+--- a/cmd/pinchtab/main.go
++++ b/cmd/pinchtab/main.go
+@@ -74,7 +74,7 @@ func main() {
+ 	human.SetHumanRandSeed(int64(stealthSeed))
+ 	seededScript := fmt.Sprintf("var __pinchtab_seed = %d;\nvar __pinchtab_stealth_level = %q;\n", stealthSeed, cfg.StealthLevel) + assets.StealthScript
+ 
+-	browserCtx, browserCancel, err := startChrome(allocCtx, seededScript)
++	browserCtx, browserCancel, err := startChrome(allocCtx, seededScript, cfg.UserAgent)
+ 	if err != nil {
+ 		slog.Warn("Chrome startup failed, clearing sessions and retrying once", "err", err)
+ 
+@@ -85,7 +85,7 @@ func main() {
+ 		allocCtx, allocCancel, _ = setupAllocator(cfg)
+ 		_ = chromeOpts // used implicitly via setupAllocator
+ 
+-		browserCtx, browserCancel, err = startChrome(allocCtx, seededScript)
++		browserCtx, browserCancel, err = startChrome(allocCtx, seededScript, cfg.UserAgent)
+ 		if err != nil {
+ 			slog.Error("Chrome failed to start after retry",
+ 				"err", err,
+diff --git a/internal/bridge/bridge.go b/internal/bridge/bridge.go
+index 2e68a17..64e5738 100644
+--- a/internal/bridge/bridge.go
++++ b/internal/bridge/bridge.go
+@@ -6,6 +6,7 @@ import (
+ 	"log/slog"
+ 	"time"
+ 
++	"github.com/chromedp/cdproto/emulation"
+ 	"github.com/chromedp/cdproto/page"
+ 	"github.com/chromedp/chromedp"
+ 	"github.com/pinchtab/pinchtab/internal/config"
+@@ -59,6 +60,37 @@ func (b *Bridge) injectStealth(ctx context.Context) {
+ }
+ 
+ func (b *Bridge) tabSetup(ctx context.Context) {
++	if b.Config.UserAgent != "" {
++		err := chromedp.Run(ctx, chromedp.ActionFunc(func(c context.Context) error {
++			return emulation.SetUserAgentOverride(b.Config.UserAgent).
++				WithAcceptLanguage("en-US,en").
++				WithPlatform("MacIntel").
++				WithUserAgentMetadata(&emulation.UserAgentMetadata{
++					Architecture:    "arm",
++					Bitness:         "64",
++					Mobile:          false,
++					Model:           "",
++					Platform:        "macOS",
++					PlatformVersion: "14.0.0",
++					Brands: []*emulation.UserAgentBrandVersion{
++						{Brand: "Not(A:Brand", Version: "99"},
++						{Brand: "Google Chrome", Version: "133"},
++						{Brand: "Chromium", Version: "133"},
++					},
++					FullVersionList: []*emulation.UserAgentBrandVersion{
++						{Brand: "Not(A:Brand", Version: "99.0.0.0"},
++						{Brand: "Google Chrome", Version: "133.0.6943.141"},
++						{Brand: "Chromium", Version: "133.0.6943.141"},
++					},
++				}).
++				Do(c)
++		}))
++		if err != nil {
++			slog.Error("Failed to set UserAgentOverride", "err", err)
++		} else {
++			slog.Info("Successfully applied CDP UserAgentOverride")
++		}
++	}
+ 	b.injectStealth(ctx)
+ 	if b.Config.NoAnimations {
+ 		b.InjectNoAnimations(ctx)
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 39db7d2..d2629a1 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -26,6 +26,7 @@ type RuntimeConfig struct {
+ 	MaxTabs          int
+ 	ChromeBinary     string
+ 	ChromeExtraFlags string
++	UserAgent        string
+ 	NoAnimations     bool
+ 	StealthLevel     string
+ 	ActionTimeout    time.Duration
+@@ -107,6 +108,7 @@ func Load() *RuntimeConfig {
+ 		MaxTabs:          envIntOr("BRIDGE_MAX_TABS", 20),
+ 		ChromeBinary:     os.Getenv("CHROME_BINARY"),
+ 		ChromeExtraFlags: os.Getenv("CHROME_FLAGS"),
++		UserAgent:        os.Getenv("BRIDGE_USER_AGENT"),
+ 		NoAnimations:     os.Getenv("BRIDGE_NO_ANIMATIONS") == "true",
+ 		StealthLevel:     envOr("BRIDGE_STEALTH", "light"),
+ 		ActionTimeout:    15 * time.Second,

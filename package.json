@@ -1,0 +1,16 @@
+{
+  "name": "zhihu_monitor",
+  "version": "1.0.0",
+  "description": "A production-ready, stealthy monitor for tracking Zhihu writers' new posts using your real browser session.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

@@ -1,0 +1,29 @@
+# Python virtual environments
+venv/
+__pycache__/
+*.pyc
+
+# Local Scratch and Tests
+tmp/
+TMP/
+tmp_chrome/
+test_*.sh
+test_*.py
+headed_results.txt
+
+# Databases and State
+*.db
+*.log
+pinchtab-state/
+zhihu-profile/
+cookies.json
+cookies.json.old
+
+# Dynamic output
+1.json
+nav.json
+snap.json
+latest_activities.json
+
+# Built binaries
+pinchtab

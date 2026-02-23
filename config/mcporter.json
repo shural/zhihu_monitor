@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "zhihu-monitor": {
+            "description": "Zhihu user activity monitor — fetch activities, check cookies, query DB",
+            "command": "/Users/media/testgrok/zhihu_monitor/venv/bin/python",
+            "args": [
+                "/Users/media/testgrok/zhihu_monitor/mcp_server.py"
+            ],
+            "env": {
+                "PYTHONPATH": "/Users/media/testgrok/zhihu_monitor/lib:/Users/media/testgrok/zhihu_monitor",
+                "TMPDIR": "/tmp"
+            }
+        }
+    }
+}

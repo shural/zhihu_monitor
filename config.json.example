@@ -1,0 +1,42 @@
+# Zhihu Writer Monitor - Configuration Schema
+
+{
+  "url_tokens": [
+    "xu-ze-qiu"
+  ],
+  "poll_interval_minutes": 30,
+  "browser": {
+    "headless": false,
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "user_data_dir": "./zhihu-profile",
+    "login_timeout_seconds": 60
+  },
+  "notifications": {
+    "enabled": true,
+    "telegram": {
+      "enabled": false,
+      "bot_token": "",
+      "chat_id": ""
+    },
+    "ntfy": {
+      "enabled": false,
+      "server": "https://ntfy.sh",
+      "topic": ""
+    },
+    "desktop": {
+      "enabled": false
+    }
+  },
+  "rsshub": {
+    "enabled": false,
+    "url": "http://localhost:1200",
+    "cookies": ""
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "zhihu_monitor.log"
+  }
+}
